@@ -1,0 +1,36 @@
+#!/bin/bash
+DEVICES="/dev/sda4 /dev/sdb4"
+LOGFILE="testlog"
+
+function log2file {
+	echo "$(date +\[%a,%F\ %T\]) $1" >> $LOGFILE
+}
+
+for DEVICE in $DEVICES; do
+	
+	log2file "### Checking ${DEVICE} ###"
+	MOUNTCOUNT=$(tune2fs -l $DEVICE | grep "Mount count" | awk '{print $3}')
+	MAXMOUNTCOUNT=$(tune2fs -l $DEVICE | grep "Maximum mount count" | awk '{print $4}')
+	if [ $MOUNTCOUNT -eq $MAXMOUNTCOUNT ]; then
+		log2file "no information found for ${DEVICE}. aborted"
+		continue
+	fi
+
+	log2file "Mount count: ${MOUNTCOUNT}"
+	log2file "Max mount count: ${MAXMOUNTCOUNT}"
+
+	if [ $MOUNTCOUNT -gt $MAXMOUNTCOUNT ]; then
+		log2file "fsck needed on ${DEVICE}" 
+		touch /etc/mtab
+		if [ $? -eq 0 ]; then
+			log2file "root fs is mounted. fsck aborted"
+		else
+			fsck -C0 -y -f $DEVICE
+			log2file "fsck done on ${DEVICE}"
+		fi
+	else
+		log2file "no fsck needed on ${DEVICE}"
+	fi
+done
+
+
